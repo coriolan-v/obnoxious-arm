@@ -20,3 +20,5 @@ Create video:
 
 
 `sudo apt install python3-pip`
+
+`sudo mv /usr/lib/python3.12/EXTERNALLY-MANAGED /usr/lib/python3.12/EXTERNALLY-MANAGED.old`
