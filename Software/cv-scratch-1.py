@@ -9,7 +9,7 @@ config_file = "res10_300x300_ssd_iter_140000.caffemodel"
 net = cv2.dnn.readNetFromCaffe(model_file, config_file)
 
 # Open a connection to the default camera (usually /dev/video0)
-video_capture = cv2.VideoCapture('/dev/video0')
+video_capture = cv2.VideoCapture(2)
 
 # Set the width and height of the camera preview
 video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -21,6 +21,47 @@ last_seen = {}
 timeout = 2  # seconds
 unique_id = 0
 face_ids = {}
+
+def display_webcam(device_index=0, timeout=5, width=320, height=480):
+    """
+    Displays the live video feed from the specified webcam with a timeout and resized dimensions.
+
+    Args:
+        device_index (int): Index of the webcam to use (default: 0).
+        timeout (float): Timeout in seconds for opening the webcam (default: 5).
+        width (int): Desired width of the output frame.
+        height (int): Desired height of the output frame.
+    """
+
+    cap = cv2.VideoCapture(device_index)
+
+    # Add timeout for opening the webcam
+    start_time = time.time()
+    while not cap.isOpened() and time.time() - start_time < timeout:
+        cap = cv2.VideoCapture(device_index)
+
+    if not cap.isOpened():
+        print(f"Error opening webcam {device_index} within {timeout} seconds.")
+        return
+
+    while True:
+        ret, frame = cap.read()
+
+        if not ret:
+            print("Can't receive frame (stream end?). Exiting ...")
+            break
+
+        # Resize the frame
+        resized_frame = cv2.resize(frame, (width, height))
+
+        cv2.imshow('Webcam Feed', resized_frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+
+
 
 def calculate_distance(rect1, rect2):
     center1 = np.array([rect1[0] + rect1[2] / 2, rect1[1] + rect1[3] / 2])
@@ -94,6 +135,11 @@ while True:
 
     # Display the resulting frame
     cv2.imshow('Video', frame)
+
+    output_width = 320
+    output_height = 480
+
+    #display_webcam(width=output_width, height=output_height)
 
     # Break the loop on 'q' key press
     if cv2.waitKey(1) & 0xFF == ord('q'):
