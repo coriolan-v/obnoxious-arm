@@ -22,3 +22,10 @@ Create video:
 `sudo apt install python3-pip`
 
 `sudo mv /usr/lib/python3.12/EXTERNALLY-MANAGED /usr/lib/python3.12/EXTERNALLY-MANAGED.old`
+
+`
+sudo pip3 install cmake
+sudo pip3 install dlib
+sudo pip3 install scikit-image
+sudo pip3 install shapely
+`
