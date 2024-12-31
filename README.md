@@ -17,3 +17,6 @@ Create video:
 `ls /dev/video*`
 
 `scrcpy --v4l2-sink=/dev/video2`
+
+
+`sudo apt install python3-pip`
