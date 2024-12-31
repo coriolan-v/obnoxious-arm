@@ -18,7 +18,7 @@ Create video:
 
 `scrcpy --v4l2-sink=/dev/video2`
 
-`scrcpy --v4l2-sink=/dev/videoN --no-video-playback  # disable playback window`
+`scrcpy --v4l2-sink=/dev/video2 --no-video-playback` # disable playback window
 
 
 `sudo apt install python3-pip`
