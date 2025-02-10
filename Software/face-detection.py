@@ -35,7 +35,7 @@ def display_detections(frame, faces):
         cv2.putText(frame, f"Face Detected: ({x}, {y})", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
 # Open the default camera
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 
 # Set camera resolution to a suitable value (e.g., 1280x720)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280) 

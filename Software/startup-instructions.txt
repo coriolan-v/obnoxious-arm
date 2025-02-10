@@ -1,0 +1,4 @@
+
+sudo modprobe v4l2loopback
+/_DEV/obnoxious-arm/Software/scrcpy-linux-x86_64-v3.1/scrcpy --v4l2-sink=/dev/video0
+
