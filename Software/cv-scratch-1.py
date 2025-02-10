@@ -9,7 +9,7 @@ config_file = "res10_300x300_ssd_iter_140000.caffemodel"
 net = cv2.dnn.readNetFromCaffe(model_file, config_file)
 
 # Open a connection to the default camera (usually /dev/video0)
-video_capture = cv2.VideoCapture(2)
+video_capture = cv2.VideoCapture(0)
 
 # Set the width and height of the camera preview
 video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
