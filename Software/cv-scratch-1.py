@@ -32,6 +32,10 @@ def calculate_distance(rect1, rect2):
     center2 = np.array([rect2[0] + rect2[2] / 2, rect2[1] + rect2[3] / 2])
     return np.linalg.norm(center1 - center2)
 
+# Define the height of the rectangles to crop from the top and bottom
+top_height = 250
+bottom_height = 700
+
 # Create a named window
 cv2.namedWindow('Video', cv2.WINDOW_NORMAL)
 
@@ -42,11 +46,14 @@ while True:
         print("Error: Could not read frame.")
         break
 
+    # Crop the frame to remove the top and bottom rectangles
+    cropped_frame = frame[top_height:frame.shape[0]-bottom_height, :]
+
     # Get the screen size after the window has been created
     screen_width, screen_height = cv2.getWindowImageRect('Video')[2:4]
 
-    # Calculate the aspect ratio of the original frame
-    frame_height, frame_width = frame.shape[:2]
+    # Calculate the aspect ratio of the cropped frame
+    frame_height, frame_width = cropped_frame.shape[:2]
     aspect_ratio = frame_width / frame_height
 
     # Adjust the dimensions to maintain the aspect ratio
@@ -57,8 +64,8 @@ while True:
         new_width = screen_width
         new_height = int(screen_width / aspect_ratio)
 
-    # Resize the frame to fit the screen size while maintaining the aspect ratio
-    resized_frame = cv2.resize(frame, (new_width, new_height))
+    # Resize the cropped frame to fit the screen size while maintaining the aspect ratio
+    resized_frame = cv2.resize(cropped_frame, (new_width, new_height))
 
     blob = cv2.dnn.blobFromImage(cv2.resize(resized_frame, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
     net.setInput(blob)
