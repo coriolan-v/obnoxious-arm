@@ -226,7 +226,7 @@ while True:
 
             # 2. Calculate Target Motor Position (using remapped_x)
             error = x - center_x  # Calculate the error
-            proportional_gain = 0.5  # Adjust this value - IMPORTANT!
+            proportional_gain = 0.25  # Adjust this value - IMPORTANT!
             motor_adjustment = int(proportional_gain * error)
 
             target_motor_position = current_motor_position + motor_adjustment  # Use current position
