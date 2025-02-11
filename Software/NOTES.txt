@@ -1,0 +1,6 @@
+NOTES
+
+Elbow Motor 1, max position right (from its perspective) 2746
+Middle positon 2100
+Left position 1415 for now
+SPeed 200
