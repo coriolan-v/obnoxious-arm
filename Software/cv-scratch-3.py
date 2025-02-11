@@ -95,7 +95,8 @@ if scs_error != 0:
     print(f"Motor home error: {packetHandler.getRxPacketError(scs_error)}")
 print(f"Motor moved to home position: {SCS_HOME_POSITION_VALUE}")
 time.sleep(2) # Give it time to get there
-scs_comm_result, scs_error = packetHandler.WritePosEx(SCS_ELBOW_ID, SCS_ELBOW_MINIMUM_POSITION_VALUE, SCS_MOVING_SPEED, SCS_MOVING_ACC)
+
+scs_comm_result, scs_error = packetHandler.WritePosEx(SCS_ELBOW_ID, SCS__ELBOW_HOME_POSITION_VALUE, SCS_MOVING_SPEED, SCS_MOVING_ACC)
 if scs_comm_result != COMM_SUCCESS:
     print(f"Motor home command failed: {packetHandler.getTxRxResult(scs_comm_result)}")
 if scs_error != 0:
