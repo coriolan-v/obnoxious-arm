@@ -54,7 +54,7 @@ else:
 sys.path.append("/home/live/_DEV/obnoxious-arm/Software/SCServo_Python")  # Adjust path if needed
 from scservo_sdk import *
 
-SCS_ID = 1
+SCS_SHOULDER_ID = 1
 BAUDRATE = 115200
 DEVICENAME = '/dev/ttyUSB0'  # Or your port
 SCS_HOME_POSITION_VALUE = 2000
@@ -62,6 +62,11 @@ SCS_MINIMUM_POSITION_VALUE = 1600
 SCS_MAXIMUM_POSITION_VALUE = 2700
 SCS_MOVING_SPEED = 200  # Reduced speed
 SCS_MOVING_ACC = 50
+
+SCS_ELBOW_ID = 2
+SCS__ELBOW_HOME_POSITION_VALUE = 1962
+SCS_ELBOW_MINIMUM_POSITION_VALUE = 1678
+SCS_ELBOW_MAXIMUM_POSITION_VALUE = 2233
 
 portHandler = PortHandler(DEVICENAME)
 packetHandler = sms_sts(portHandler)
@@ -83,14 +88,20 @@ else:
 min_x = float('inf')
 max_x = float('-inf')
 
-home_position = 2000  # Calculate midpoint
-scs_comm_result, scs_error = packetHandler.WritePosEx(SCS_ID, SCS_HOME_POSITION_VALUE, SCS_MOVING_SPEED, SCS_MOVING_ACC)
+scs_comm_result, scs_error = packetHandler.WritePosEx(SCS_SHOULDER_ID, SCS_HOME_POSITION_VALUE, SCS_MOVING_SPEED, SCS_MOVING_ACC)
 if scs_comm_result != COMM_SUCCESS:
     print(f"Motor home command failed: {packetHandler.getTxRxResult(scs_comm_result)}")
 if scs_error != 0:
     print(f"Motor home error: {packetHandler.getRxPacketError(scs_error)}")
-
 print(f"Motor moved to home position: {SCS_HOME_POSITION_VALUE}")
+time.sleep(2) # Give it time to get there
+scs_comm_result, scs_error = packetHandler.WritePosEx(SCS_ELBOW_ID, SCS_ELBOW_MINIMUM_POSITION_VALUE, SCS_MOVING_SPEED, SCS_MOVING_ACC)
+if scs_comm_result != COMM_SUCCESS:
+    print(f"Motor home command failed: {packetHandler.getTxRxResult(scs_comm_result)}")
+if scs_error != 0:
+    print(f"Motor home error: {packetHandler.getRxPacketError(scs_error)}")
+print(f"Motor moved to home position: {SCS_HOME_POSITION_VALUE}")
+
 time.sleep(1) # Give it time to get there
 # Main loop (Section 3 - next)
 while True:
@@ -211,17 +222,17 @@ while True:
 
         # 1. Read Current Motor Position
         groupSyncRead.clearParam()  # Clear previous parameters
-        scs_addparam_result = groupSyncRead.addParam(SCS_ID)  # Add the motor ID to the syncread
+        scs_addparam_result = groupSyncRead.addParam(SCS_SHOULDER_ID)  # Add the motor ID to the syncread
         if scs_addparam_result != True:
-            print(f"[ID:{SCS_ID}] groupSyncRead addparam failed")
+            print(f"[ID:{SCS_SHOULDER_ID}] groupSyncRead addparam failed")
 
         scs_comm_result = groupSyncRead.txRxPacket()
         if scs_comm_result != COMM_SUCCESS:
             print(f"SyncRead Error: {packetHandler.getTxRxResult(scs_comm_result)}")
 
-        scs_data_result, scs_error = groupSyncRead.isAvailable(SCS_ID, SMS_STS_PRESENT_POSITION_L, 2)
+        scs_data_result, scs_error = groupSyncRead.isAvailable(SCS_SHOULDER_ID, SMS_STS_PRESENT_POSITION_L, 2)
         if scs_data_result == True:
-            current_motor_position = groupSyncRead.getData(SCS_ID, SMS_STS_PRESENT_POSITION_L, 2)
+            current_motor_position = groupSyncRead.getData(SCS_SHOULDER_ID, SMS_STS_PRESENT_POSITION_L, 2)
             print(f"Current Motor Position: {current_motor_position}")
 
             # 2. Calculate Target Motor Position (using remapped_x)
@@ -234,7 +245,7 @@ while True:
 
             # 3. Move Motor (only if target is different from current)
             if target_motor_position != current_motor_position:
-                scs_comm_result, scs_error = packetHandler.WritePosEx(SCS_ID, target_motor_position, SCS_MOVING_SPEED, SCS_MOVING_ACC)
+                scs_comm_result, scs_error = packetHandler.WritePosEx(SCS_SHOULDER_ID, target_motor_position, SCS_MOVING_SPEED, SCS_MOVING_ACC)
                 if scs_comm_result != COMM_SUCCESS:
                     print(f"Motor command failed: {packetHandler.getTxRxResult(scs_comm_result)}")
                 if scs_error != 0:
@@ -243,7 +254,7 @@ while True:
                 print(f"Target Motor Position: {target_motor_position}")
 
     else:
-        print(f"[ID:{SCS_ID}] groupSyncRead getdata failed")
+        print(f"[ID:{SCS_SHOULDER_ID}] groupSyncRead getdata failed")
         # Handle the case where reading fails (e.g., set current_motor_position to a default or skip motor control)
         # For example, you could add this line:
         # current_motor_position = (SCS_MINIMUM_POSITION_VALUE + SCS_MAXIMUM_POSITION_VALUE) // 2  # Default to center

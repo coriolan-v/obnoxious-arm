@@ -1,6 +1,9 @@
 NOTES
 
-Elbow Motor 1, max position right (from its perspective) 2746
+Shoui;der Motor 1, max position right (from its perspective) 2746
 Middle positon 2100
 Left position 1415 for now
 SPeed 200
+
+Elbow ID 2, min pos 1678, max pos 2233, default 1962
+
