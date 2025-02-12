@@ -38,31 +38,24 @@ def main():
     max_x = float('-inf')
     min_y = float('inf')
     max_y = float('-inf')
-
+    
+    frame_count = 0
+    
     while True:
         ret, frame = video_capture.read()
-        if not ret:
-            print("Error: Could not read frame.")
-            break
+        if not ret: break
 
-        # Crop the frame
-        cropped_frame = frame[TOP_HEIGHT:frame.shape[0]-BOTTOM_HEIGHT, :]
+        # Rotate the frame 90 degrees clockwise
+        rotated_frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)  # Or cv2.ROTATE_90_COUNTERCLOCKWISE
 
-        # Resize while maintaining aspect ratio
-        screen_width, screen_height = cv2.getWindowImageRect(WINDOW_NAME)[2:4]
-        frame_height, frame_width = cropped_frame.shape[:2]
-        aspect_ratio = frame_width / frame_height
+        # 1. Target Resolution (Experiment!)
+        new_width = 480
+        new_height = 640
 
-        if screen_width / screen_height > aspect_ratio:
-            new_width = int(screen_height * aspect_ratio)
-            new_height = screen_height
-        else:
-            new_width = screen_width
-            new_height = int(screen_width / aspect_ratio)
+        # 2. Resize the *rotated* frame
+        resized_frame = cv2.resize(rotated_frame, (new_width, new_height))
 
-        resized_frame = cv2.resize(cropped_frame, (new_width, new_height))
-
-        # Face detection and tracking
+        # 3. Face Detection and Tracking (using resized and rotated frame)
         faces = face_detector.detect_faces(resized_frame)
         face_detector.update_trackers(resized_frame)
         face_detector.match_and_track(resized_frame, faces)

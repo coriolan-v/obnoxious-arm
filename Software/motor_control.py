@@ -22,19 +22,22 @@ sys.path.append("/home/live/_DEV/obnoxious-arm/Software/SCServo_Python")  # Adju
 from scservo_sdk import *
 
 BAUDRATE = 115200
-SCS_MOVING_SPEED = 200  # Reduced speed
-SCS_MOVING_ACC = 50
+
 DEVICENAME = '/dev/ttyUSB0'  # Or your port
 
 SCS_SHOULDER_ID = 1
 SCS_SHOULDER_HOME_POSITION_VALUE = 2000
 SCS_SHOULDER_MINIMUM_POSITION_VALUE = 1000
 SCS_SHOULDER_MAXIMUM_POSITION_VALUE = 2700
+SCS_SHOULDER_MOVING_SPEED = 200
+SCS_SHOULDER_MOVING_ACC = 50
 
 SCS_ELBOW_ID = 2
 SCS_ELBOW_HOME_POSITION_VALUE = 1962
 SCS_ELBOW_MINIMUM_POSITION_VALUE = 1678
 SCS_ELBOW_MAXIMUM_POSITION_VALUE = 2250
+SCS_ELBOW_MOVING_SPEED = 200
+SCS_ELBOW_MOVING_ACC = 50
 
 class MotorController:
     def __init__(self):
@@ -67,6 +70,16 @@ class MotorController:
         time.sleep(2)  # Give it time to get there
 
     def move_motor(self, motor_id, position):
+    
+        SCS_MOVING_SPEED = 200  # Reduced speed
+        SCS_MOVING_ACC = 30
+
+        if motor_id == SCS_SHOULDER_ID:
+            SCS_MOVING_ACC = SCS_SHOULDER_MOVING_ACC
+            SCS_MOVING_SPEED = SCS_SHOULDER_MOVING_SPEED
+        else:
+            SCS_MOVING_ACC = SCS_ELBOW_MOVING_ACC
+            SCS_MOVING_SPEED = SCS_ELBOW_MOVING_SPEED
         scs_comm_result, scs_error = self.packetHandler.WritePosEx(motor_id, position, SCS_MOVING_SPEED, SCS_MOVING_ACC)
         if scs_comm_result != COMM_SUCCESS:
             print(f"Motor command failed: {self.packetHandler.getTxRxResult(scs_comm_result)}")
@@ -120,7 +133,7 @@ class MotorController:
             #print(f"Current Elbow Position: {current_elbow_position}") #optional debug print
 
             error_y = y - center_y
-            proportional_gain_y = 0.75  # Increased gain for y-axis
+            proportional_gain_y = 0.25  # Increased gain for y-axis
             motor_adjustment_y = int(proportional_gain_y * error_y)
 
             target_elbow_position = current_elbow_position - motor_adjustment_y

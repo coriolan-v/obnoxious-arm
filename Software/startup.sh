@@ -8,7 +8,7 @@ V4L2_DEVICE="/dev/video0"
 
 # Function to run scrcpy and check the return code
 run_scrcpy() {
-  "$SCRCPY_PATH" --v4l2-sink="$V4L2_DEVICE"
+  "$SCRCPY_PATH" --v4l2-sink="$V4L2_DEVICE"--no-video-playback 
   return $? # Return the exit code of scrcpy
 }
 
