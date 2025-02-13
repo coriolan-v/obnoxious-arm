@@ -7,3 +7,6 @@ SPeed 200
 
 Elbow ID 2, min pos 1678, max pos 2233, default 1962
 
+scrcpy-linux-x86_64-v3.1/scrcpy --video-source=camera --camera-size=1920x1080 --camera-fps=240 --v4l2-sink=/dev/video0 --no-video-playback
+
+
