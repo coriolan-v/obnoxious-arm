@@ -90,11 +90,11 @@ def main():
             # Motor control
             center_x = resized_frame.shape[1] // 2
             tolerance = 50
-            #motor_controller.control_shoulder_motor(x, center_x, tolerance)
+            motor_controller.control_shoulder_motor(x, center_x, tolerance)
 
             center_y = resized_frame.shape[0] // 2
             tolerance_y = 50
-            #motor_controller.control_elbow_motor(y, center_y, tolerance_y)
+            motor_controller.control_elbow_motor(y, center_y, tolerance_y)
 
         # Draw tracking boxes
         face_detector.draw_tracking_boxes(resized_frame)

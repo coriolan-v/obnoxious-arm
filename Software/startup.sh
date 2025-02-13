@@ -3,7 +3,7 @@
 # Load v4l2loopback module
 sudo modprobe v4l2loopback
 
-SCRCPY_PATH="/home/artwork/Documents/GitHub/obnoxious-arm/Software/scrcpy-linux-x86_64-v3.1/./scrcpy"
+SCRCPY_PATH="//home/live/Documents/GitHub/obnoxious-arm/Software/scrcpy-linux-x86_64-v3.1/./scrcpy"
 V4L2_DEVICE="/dev/video0"
 CAMERA_SIZE="640x480"
 ORIENTATION="90"

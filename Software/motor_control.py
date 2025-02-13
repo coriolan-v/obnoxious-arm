@@ -18,7 +18,7 @@ else:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
-sys.path.append("/home/live/_DEV/obnoxious-arm/Software/SCServo_Python")  # Adjust path if needed
+sys.path.append("/home/live/Documents/GitHub/obnoxious-arm/Software/SCServo_Python")  # Adjust path if needed
 from scservo_sdk import *
 
 BAUDRATE = 115200
