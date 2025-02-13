@@ -102,7 +102,7 @@ class MotorController:
             #print(f"Current Shoulder Position: {current_shoulder_position}") #optional debug print
 
             error = x - center_x
-            proportional_gain = 0.25  # Adjust this value - IMPORTANT!
+            proportional_gain = 0.20  # Adjust this value - IMPORTANT!
             motor_adjustment = int(proportional_gain * error)
 
             target_shoulder_position = current_shoulder_position + motor_adjustment

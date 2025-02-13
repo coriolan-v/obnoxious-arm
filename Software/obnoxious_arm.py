@@ -14,6 +14,9 @@ VIDEO_CAPTURE_INDEX = 0  # Or your camera index
 TOP_HEIGHT = 250
 BOTTOM_HEIGHT = 700
 
+WIDTH = 400
+HEIGHT = 660
+
 # Window name
 WINDOW_NAME = 'Video'
 
@@ -28,8 +31,8 @@ def main():
         print("Error: Could not open video capture device.")
         return
 
-    video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 480)
-    video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 640)
+    video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
+    video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
 
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
 
@@ -47,14 +50,16 @@ def main():
 
         # Rotate the frame 90 degrees clockwise
         rotated_frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)  # Or cv2.ROTATE_90_COUNTERCLOCKWISE
+        #rotated_frame = frame
 
         # 1. Target Resolution (Experiment!)
-        new_width = 480
-        new_height = 640
+        new_width = WIDTH
+        new_height = HEIGHT
 
         # 2. Resize the *rotated* frame
-        resized_frame = cv2.resize(rotated_frame, (new_width, new_height))
-
+        #resized_frame = cv2.resize(rotated_frame, (new_width, new_height))
+        resized_frame = rotated_frame
+        
         # 3. Face Detection and Tracking (using resized and rotated frame)
         faces = face_detector.detect_faces(resized_frame)
         face_detector.update_trackers(resized_frame)
@@ -85,11 +90,11 @@ def main():
             # Motor control
             center_x = resized_frame.shape[1] // 2
             tolerance = 50
-            motor_controller.control_shoulder_motor(x, center_x, tolerance)
+            #motor_controller.control_shoulder_motor(x, center_x, tolerance)
 
             center_y = resized_frame.shape[0] // 2
             tolerance_y = 50
-            motor_controller.control_elbow_motor(y, center_y, tolerance_y)
+            #motor_controller.control_elbow_motor(y, center_y, tolerance_y)
 
         # Draw tracking boxes
         face_detector.draw_tracking_boxes(resized_frame)
