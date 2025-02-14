@@ -2,8 +2,8 @@
 import sys
 import os
 import time
-import select # For non-blocking input on Linux/macOS
-from threading import Lock # For thread safety during sweep
+import select
+from threading import Lock
 
 if os.name == 'nt':
     import msvcrt
@@ -40,11 +40,14 @@ SCS_SHOULDER_MOVING_SPEED = 200
 SCS_SHOULDER_MOVING_ACC = 50
 
 SCS_ELBOW_ID = 2
-SCS_ELBOW_HOME_POSITION_VALUE = 1962
-SCS_ELBOW_MINIMUM_POSITION_VALUE = 1678
-SCS_ELBOW_MAXIMUM_POSITION_VALUE = 2250
+SCS_ELBOW_HOME_POSITION_VALUE = 2500
+SCS_ELBOW_MINIMUM_POSITION_VALUE = 2000
+SCS_ELBOW_MAXIMUM_POSITION_VALUE = 2900
 SCS_ELBOW_MOVING_SPEED = 200
 SCS_ELBOW_MOVING_ACC = 50
+
+SCS_MOVING_SPEED = 300
+SCS_MOVING_ACC = 50
 
 class MotorController:
     def __init__(self):
@@ -54,22 +57,17 @@ class MotorController:
         self.shoulder_target_position = None   # Store last target shoulder position
         self.elbow_target_position = None     # Store last target elbow position
         self.portHandler = PortHandler(DEVICENAME)
-
         self.packetHandler = sms_sts(self.portHandler)
-
         self.groupSyncRead = GroupSyncRead(self.packetHandler, SMS_STS_PRESENT_POSITION_L, 11)
-
         self.groupSyncReadElbow = GroupSyncRead(self.packetHandler, SMS_STS_PRESENT_POSITION_L, 11)
-
         self.open_port()
-
         self.set_baudrate()
-
         self.go_home()
-
         self.sweep_running = False  # Flag for sweep thread
-
         self.sweep_lock = Lock()  # Lock for thread safety during sweep
+        self.index = 0  # For toggling goal positions (if needed)
+        self.shoulder_target_position = SCS_SHOULDER_HOME_POSITION_VALUE  # Initialize target positions
+        self.elbow_target_position = SCS_ELBOW_HOME_POSITION_VALUE      # Initialize target positions
 
         #self.shared_variable = shared_variable # Shared variable for interruption 
 
@@ -96,88 +94,68 @@ class MotorController:
     
         
 
-    def move_motor(self, motor_id, position):
-    
-        SCS_MOVING_SPEED = 200  # Reduced speed
-        SCS_MOVING_ACC = 30
+    def move_motor(self, motor_id, position, speed=None, acceleration=None):
+        if speed is None:
+            speed = SCS_MOVING_SPEED
+        if acceleration is None:
+            acceleration = SCS_MOVING_ACC
 
-        if motor_id == SCS_SHOULDER_ID:
-            SCS_MOVING_ACC = SCS_SHOULDER_MOVING_ACC
-            SCS_MOVING_SPEED = SCS_SHOULDER_MOVING_SPEED
-        else:
-            SCS_MOVING_ACC = SCS_ELBOW_MOVING_ACC
-            SCS_MOVING_SPEED = SCS_ELBOW_MOVING_SPEED
-        scs_comm_result, scs_error = self.packetHandler.WritePosEx(motor_id, position, SCS_MOVING_SPEED, SCS_MOVING_ACC)
+        scs_comm_result, scs_error = self.packetHandler.WritePosEx(motor_id, position, speed, acceleration)
         if scs_comm_result != COMM_SUCCESS:
             print(f"Motor command failed: {self.packetHandler.getTxRxResult(scs_comm_result)}")
         if scs_error != 0:
             print(f"Motor error: {self.packetHandler.getRxPacketError(scs_error)}")
+            
+    def get_current_shoulder_position(self):
+        position, speed = self.read_motor_position_speed(SCS_SHOULDER_ID)
+        if position is not None:
+            return position
+        else:
+            print("Failed to get current shoulder position. Returning default.")
+            return SCS_SHOULDER_HOME_POSITION_VALUE  # Or a suitable default
+
+    def get_current_elbow_position(self):
+        position, speed = self.read_motor_position_speed(SCS_ELBOW_ID)
+        if position is not None:
+            return position
+        else:
+            print("Failed to get current elbow position. Returning default.")
+            return SCS_ELBOW_HOME_POSITION_VALUE  # Or a suitable default
+
+    def read_motor_position_speed(self, motor_id):
+        scs_present_position, scs_present_speed, scs_comm_result, scs_error = self.packetHandler.ReadPosSpeed(motor_id)
+        if scs_comm_result != COMM_SUCCESS:
+            print(f"Position/Speed read failed: {self.packetHandler.getTxRxResult(scs_comm_result)}")
+            return None, None
+        elif scs_error != 0:
+            print(f"Position/Speed read error: {self.packetHandler.getRxPacketError(scs_error)}")
+            return None, None
+        return scs_present_position, scs_present_speed
 
     def control_shoulder_motor(self, x, center_x, tolerance):
         error = x - center_x
-        proportional_gain = 0.30  # Adjust this value - IMPORTANT!
+        proportional_gain = 0.15  # Adjust this value - IMPORTANT!
         motor_adjustment = int(proportional_gain * error)
 
-        # Only read position if the target has changed or it's the first time
-        if self.shoulder_target_position is None or abs(motor_adjustment) > tolerance or self.shoulder_current_position is None:  # Check if target changed
-            self.groupSyncRead.clearParam()
-            scs_addparam_result = self.groupSyncRead.addParam(SCS_SHOULDER_ID)
-            if scs_addparam_result != True:
-                print(f"[ID:{SCS_SHOULDER_ID}] groupSyncRead addparam failed")
-
-            scs_comm_result = self.groupSyncRead.txRxPacket()
-            if scs_comm_result != COMM_SUCCESS:
-                print(f"SyncRead Error: {self.packetHandler.getTxRxResult(scs_comm_result)}")
-
-            scs_data_result, scs_error = self.groupSyncRead.isAvailable(SCS_SHOULDER_ID, SMS_STS_PRESENT_POSITION_L, 2)
-            if scs_data_result == True:
-                self.shoulder_current_position = self.groupSyncRead.getData(SCS_SHOULDER_ID, SMS_STS_PRESENT_POSITION_L, 2)
-            else:
-                print(f"[ID:{SCS_SHOULDER_ID}] groupSyncRead getdata failed")
-                self.shoulder_current_position = (SCS_SHOULDER_MINIMUM_POSITION_VALUE + SCS_SHOULDER_MAXIMUM_POSITION_VALUE) // 2  # Default to center
-
-        target_shoulder_position = self.shoulder_current_position + motor_adjustment
+        target_shoulder_position = self.shoulder_target_position + motor_adjustment # Use the LAST target position
         target_shoulder_position = max(SCS_SHOULDER_MINIMUM_POSITION_VALUE, min(SCS_SHOULDER_MAXIMUM_POSITION_VALUE, target_shoulder_position))
 
-        if self.shoulder_target_position is None or target_shoulder_position != self.shoulder_target_position: # Check if target changed
+        if target_shoulder_position != self.shoulder_target_position: # Only send command if target changed
             self.move_motor(SCS_SHOULDER_ID, target_shoulder_position)
-            self.shoulder_target_position = target_shoulder_position # Update last target position
+            self.shoulder_target_position = target_shoulder_position # Update the last target position
 
     def control_elbow_motor(self, y, center_y, tolerance_y):
         error_y = y - center_y
-        proportional_gain_y = 0.30  # Increased gain for y-axis
+        proportional_gain_y = 0.15  # Adjust this value - IMPORTANT!
         motor_adjustment_y = int(proportional_gain_y * error_y)
 
-        # Only read position if the target has changed or it's the first time
-        if self.elbow_target_position is None or abs(motor_adjustment_y) > tolerance_y or self.elbow_current_position is None:  # Check if target changed
-            self.groupSyncReadElbow.clearParam()
-            scs_addparam_result = self.groupSyncReadElbow.addParam(SCS_ELBOW_ID)
-            if scs_addparam_result != True:
-                print(f"[ID:{SCS_ELBOW_ID}] groupSyncRead addparam failed")
-
-            scs_comm_result = self.groupSyncReadElbow.txRxPacket()
-            if scs_comm_result != COMM_SUCCESS:
-                print(f"SyncRead Error: {self.packetHandler.getTxRxResult(scs_comm_result)}")
-
-            scs_data_result, scs_error = self.groupSyncReadElbow.isAvailable(SCS_ELBOW_ID, SMS_STS_PRESENT_POSITION_L, 2)
-
-            if scs_data_result == True:
-                self.elbow_current_position = self.groupSyncReadElbow.getData(SCS_ELBOW_ID, SMS_STS_PRESENT_POSITION_L, 2)
-            else:
-                print(f"[ID:{SCS_ELBOW_ID}] groupSyncRead getdata failed")
-                self.elbow_current_position = (SCS_ELBOW_MINIMUM_POSITION_VALUE + SCS_ELBOW_MAXIMUM_POSITION_VALUE) // 2
-
-        target_elbow_position = self.elbow_current_position - motor_adjustment_y
+        target_elbow_position = self.elbow_target_position - motor_adjustment_y # Use the LAST target position
         target_elbow_position = max(SCS_ELBOW_MINIMUM_POSITION_VALUE, min(SCS_ELBOW_MAXIMUM_POSITION_VALUE, target_elbow_position))
 
-        if self.elbow_target_position is None or abs(motor_adjustment_y) > tolerance_y or target_elbow_position != self.elbow_target_position: # Check if target changed
+        if target_elbow_position != self.elbow_target_position: # Only send command if target changed
             self.move_motor(SCS_ELBOW_ID, target_elbow_position)
-            self.elbow_target_position = target_elbow_position # Update last target position
+            self.elbow_target_position = target_elbow_position # Update the last target position
 
-        else:
-            #print(f"[ID:{SCS_ELBOW_ID}] groupSyncRead getdata failed") #optional debug print
-            current_elbow_position = (SCS_ELBOW_MINIMUM_POSITION_VALUE + SCS_ELBOW_MAXIMUM_POSITION_VALUE) // 2
-            #print("Elbow groupSyncRead failed, setting default position") #optional debug print
             
     def sweep_shoulder_motor(self, sweep_delay=4):
         """Sweeps the shoulder motor, interruptible by shared variable."""
@@ -245,6 +223,8 @@ class MotorController:
             except Exception as e:
                 print(f"Error checking input: {e}")
         return False
+        
+   
 
     def close_port(self):
         self.portHandler.closePort()

@@ -50,7 +50,13 @@ while True:
     start_time = time.time()
 
     # Face detection (same as before)
-    faces = face_cascade.detectMultiScale(resized_frame, 1.1, 3, cv2.CASCADE_SCALE_IMAGE, minSize=(30, 30))
+    faces = face_cascade.detectMultiScale(
+    resized_frame,
+    scaleFactor=1.05,      # Adjust this value (1.05-1.3)
+    minNeighbors=5,      # Adjust this value (3-6 or higher)
+    flags=cv2.CASCADE_SCALE_IMAGE,
+    minSize=(30, 30)     # Keep this or adjust as needed
+    )
     end_time = time.time()
     fps = 1 / (end_time - start_time)
 
@@ -83,8 +89,8 @@ while True:
         shoulder_motor_position = int(np.interp(x, [0, rotated_frame.shape[1]], [SHOULDER_MOTOR_MIN, SHOULDER_MOTOR_MAX]))
         elbow_motor_position = int(np.interp(y, [0, rotated_frame.shape[0]], [ELBOW_MOTOR_MIN, ELBOW_MOTOR_MAX]))
 
-        #print(f"Shoulder Motor Position: {shoulder_motor_position}")
-        #print(f"Elbow Motor Position: {elbow_motor_position}")
+        print(f"Shoulder Motor Position: {shoulder_motor_position}")
+        print(f"Elbow Motor Position: {elbow_motor_position}")
 
         center_x = rotated_frame.shape[1] // 2  # Center of the ROTATED frame
         tolerance = 50
