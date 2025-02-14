@@ -3,7 +3,7 @@ import dlib
 import numpy as np
 import time
 
-TRACKER_TIMEOUT = 2
+TRACKER_TIMEOUT = 0.5
 FACE_CONFIDENCE_THRESHOLD = 0.8
 FACE_MATCH_DISTANCE_THRESHOLD = 50
 
@@ -14,55 +14,67 @@ class FaceDetector:
         self.last_seen = {}
         self.unique_id = 0
         self.face_ids = {}
+        self.frame_resized = None  # Store the resized frame
+        self.mean = (104.0, 177.0, 123.0)  # Pre-calculate mean for blobFromImage
+        self.input_size = (300, 300)      # Pre-define input size
 
     def detect_faces(self, frame):
-        blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
+        # Resize frame only once and store it
+        self.frame_resized = cv2.resize(frame, self.input_size)
+        blob = cv2.dnn.blobFromImage(self.frame_resized, 1.0, self.input_size, self.mean)
         self.net.setInput(blob)
         detections = self.net.forward()
 
         faces = []
+        height, width = frame.shape[:2]  # Get original frame dimensions once
         for i in range(detections.shape[2]):
             confidence = detections[0, 0, i, 2]
             if confidence > FACE_CONFIDENCE_THRESHOLD:
-                box = detections[0, 0, i, 3:7] * np.array([frame.shape[1], frame.shape[0], frame.shape[1], frame.shape[0]])
-                (x, y, w, h) = box.astype("int")
-                faces.append((x, y, w - x, h - y))
+                box = detections[0, 0, i, 3:7] * np.array([width, height, width, height])  # Use pre-calculated dims
+                x, y, w, h = box.astype("int")
+                faces.append((x, y, int(w) - x, int(h) - y))  # Store as (x, y, width, height)
         return faces
 
     def update_trackers(self, frame):
         current_time = time.time()
-        new_trackers = []
-        for tracker in self.trackers:
-            tracker.update(frame)
-            tid = self.face_ids[tracker]
-            if current_time - self.last_seen[tid] > TRACKER_TIMEOUT:
-                del self.last_seen[tid]
-                del self.face_ids[tracker]
-            else:
-                new_trackers.append(tracker)
-        self.trackers = new_trackers
+        self.trackers = [
+            tracker for tracker in self.trackers
+            if (current_time - self.last_seen[self.face_ids[tracker]] <= TRACKER_TIMEOUT and tracker.update(frame) > 0)
+        ]
 
     def match_and_track(self, frame, faces):
-        tracked_positions = [(tracker.get_position().left(), tracker.get_position().top(), tracker.get_position().width(),
-                             tracker.get_position().height()) for tracker in self.trackers]
+        tracked_positions = {
+            self.face_ids[tracker]: (int(tracker.get_position().left()), int(tracker.get_position().top()),
+                                      int(tracker.get_position().width()), int(tracker.get_position().height()))
+            for tracker in self.trackers
+        }
 
         for (x, y, w, h) in faces:
-            match_found = False
-            for (tx, ty, tw, th) in tracked_positions:
-                if calculate_distance((x, y, w, h), (tx, ty, tw, th)) < FACE_MATCH_DISTANCE_THRESHOLD:
-                    match_found = True
-                    break
-            if not match_found:
+            best_match_id = None
+            min_distance = FACE_MATCH_DISTANCE_THRESHOLD
+
+            for tid, (tx, ty, tw, th) in tracked_positions.items():
+                distance = calculate_distance((x, y, w, h), (tx, ty, tw, th))
+                if distance < min_distance:
+                    min_distance = distance
+                    best_match_id = tid
+
+            if best_match_id is None:  # No match found, create a new tracker
                 tracker = dlib.correlation_tracker()
                 tracker.start_track(frame, dlib.rectangle(x, y, x + w, y + h))
                 self.trackers.append(tracker)
                 self.face_ids[tracker] = self.unique_id
                 self.last_seen[self.unique_id] = time.time()
                 self.unique_id += 1
+            else:  # Update the last seen time for matched tracker
+                self.last_seen[best_match_id] = time.time()
 
     def get_tracked_positions(self):
-        return [(tracker.get_position().left(), tracker.get_position().top(), tracker.get_position().width(),
-                 tracker.get_position().height()) for tracker in self.trackers]
+        return {
+            self.face_ids[tracker]: (int(tracker.get_position().left()), int(tracker.get_position().top()),
+                                      int(tracker.get_position().width()), int(tracker.get_position().height()))
+            for tracker in self.trackers
+        }
 
     def draw_tracking_boxes(self, frame):
         for tracker in self.trackers:
@@ -77,14 +89,15 @@ class FaceDetector:
 
     def get_first_face_coordinates(self):
         if self.trackers:
-            first_tracker = self.trackers[0]
-            pos = first_tracker.get_position()
+            tracker = self.trackers[0]
+            pos = tracker.get_position()
             x = int(pos.left())
             y = int(pos.top())
             w = int(pos.width())
             h = int(pos.height())
             return x, y, w, h
         return None
+
 
 def calculate_distance(rect1, rect2):
     center1 = np.array([rect1[0] + rect1[2] / 2, rect1[1] + rect1[3] / 2])

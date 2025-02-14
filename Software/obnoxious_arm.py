@@ -2,6 +2,7 @@ import cv2
 import os
 from face_detection import FaceDetector
 from motor_control import MotorController
+import time
 
 # Face detection models (replace with your paths)
 MODEL_FILE = "deploy.prototxt"
@@ -14,8 +15,8 @@ VIDEO_CAPTURE_INDEX = 0  # Or your camera index
 TOP_HEIGHT = 250
 BOTTOM_HEIGHT = 700
 
-WIDTH = 400
-HEIGHT = 660
+WIDTH = 480
+HEIGHT = 640
 
 # Window name
 WINDOW_NAME = 'Video'
@@ -31,11 +32,12 @@ def main():
         print("Error: Could not open video capture device.")
         return
 
-    video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
-    video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
+    #video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
+    #video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
 
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
-
+    
+    
     # Main loop
     min_x = float('inf')
     max_x = float('-inf')
@@ -43,6 +45,11 @@ def main():
     max_y = float('-inf')
     
     frame_count = 0
+    
+    last_face_detection_time = time.time()  # Keep track of the last detection time
+    motor_sweep_enabled = False  # Flag to indicate if motor sweep is active
+    sweep_direction = 1 # 1 for right, -1 for left
+    sweep_speed = 50 # Adjust as needed
     
     while True:
         ret, frame = video_capture.read()
@@ -60,6 +67,7 @@ def main():
         #resized_frame = cv2.resize(rotated_frame, (new_width, new_height))
         resized_frame = rotated_frame
         
+        
         # 3. Face Detection and Tracking (using resized and rotated frame)
         faces = face_detector.detect_faces(resized_frame)
         face_detector.update_trackers(resized_frame)
@@ -68,6 +76,9 @@ def main():
         # Get and remap face coordinates
         first_face_coords = face_detector.get_first_face_coordinates()
         if first_face_coords:
+            last_face_detection_time = time.time()  # Reset detection time
+            motor_sweep_enabled = False  # Stop any sweep
+            #motor_controller.stop_sweep()
             x, y, w, h = first_face_coords
             min_x = min(min_x, x)
             max_x = max(max_x, x)
@@ -95,15 +106,25 @@ def main():
             center_y = resized_frame.shape[0] // 2
             tolerance_y = 50
             motor_controller.control_elbow_motor(y, center_y, tolerance_y)
+        
+        #else:
+            #if time.time() - last_face_detection_time > 3:  # 10 seconds without detection
+                #motor_sweep_enabled = True  # Enable sweep
+                #motor_controller.sweep_shoulder_motor()
+                #print("No face detected for 10 seconds. Starting motor sweep.")
+                
+
+        
 
         # Draw tracking boxes
         face_detector.draw_tracking_boxes(resized_frame)
-
+    
+    
         cv2.imshow(WINDOW_NAME, resized_frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-
+    
     # Cleanup
     motor_controller.close_port()
     video_capture.release()

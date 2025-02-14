@@ -10,7 +10,7 @@ ORIENTATION="90"
 SPEED="120"
 
 run_scrcpy() {
-  "$SCRCPY_PATH" --video-source=camera --no-audio --camera-size="$CAMERA_SIZE" --orientation="$ORIENTATION" --camera-fps="$SPEED" --v4l2-sink="$V4L2_DEVICE"
+  "$SCRCPY_PATH" --video-source=camera --no-audio --camera-size="$CAMERA_SIZE" --orientation="$ORIENTATION" --camera-fps="$SPEED" --v4l2-sink="$V4L2_DEVICE" 
   return $?
 }
 
