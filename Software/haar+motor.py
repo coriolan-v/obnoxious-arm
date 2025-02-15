@@ -3,6 +3,8 @@ import time
 import numpy as np  # Import numpy
 from motor_control import MotorController  # Import your motor control class
 
+FPS_DISPLAY_INTERVAL = 10  # Display FPS every 10 frames
+frame_count = 0  # Initialize frame counter
 CAMERA_WIDTH = 320  # Reduced width for faster processing
 CAMERA_HEIGHT = 240  # Reduced height for faster processing
 # Open the default camera (video0)
@@ -109,8 +111,17 @@ while True:
         tolerance_y = 50
         motor_controller.control_elbow_motor(y, center_y, tolerance_y)  # Use MotorController
 
+    end_time = time.time()
+    fps = 1 / (end_time - start_time)
+
+    frame_count += 1  # Increment frame counter
+
+    if frame_count % FPS_DISPLAY_INTERVAL == 0:  # Check if it's time to display FPS
+        print(f"Frame rate: {fps:.2f} fps")
+        frame_count = 0  # Reset frame counter
+
     # Display frame rate
-    print(f"Frame rate: {fps:.2f} fps")
+    #print(f"Frame rate: {fps:.2f} fps")
     display_frame = cv2.resize(rotated_frame, None, fx=DISPLAY_SCALE, fy=DISPLAY_SCALE, interpolation=cv2.INTER_LINEAR)
 
     cv2.imshow("Face Detection (Rotated)", display_frame)  # Show the larger frame

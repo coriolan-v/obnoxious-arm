@@ -36,18 +36,17 @@ SCS_SHOULDER_ID = 1
 SCS_SHOULDER_HOME_POSITION_VALUE = 2000
 SCS_SHOULDER_MINIMUM_POSITION_VALUE = 1000
 SCS_SHOULDER_MAXIMUM_POSITION_VALUE = 2700
-SCS_SHOULDER_MOVING_SPEED = 200
-SCS_SHOULDER_MOVING_ACC = 50
+SCS_SHOULDER_MOVING_SPEED = 400
+SCS_SHOULDER_MOVING_ACC = 40
+PROPORTIONAL_GAIN_SHOULDER = 0.45
 
 SCS_ELBOW_ID = 2
 SCS_ELBOW_HOME_POSITION_VALUE = 2000
 SCS_ELBOW_MINIMUM_POSITION_VALUE = 1500
 SCS_ELBOW_MAXIMUM_POSITION_VALUE = 2900
-SCS_ELBOW_MOVING_SPEED = 200
-SCS_ELBOW_MOVING_ACC = 50
-
-SCS_MOVING_SPEED = 300
-SCS_MOVING_ACC = 50
+SCS_ELBOW_MOVING_SPEED = 400
+SCS_ELBOW_MOVING_ACC = 40
+PROPORTIONAL_GAIN_ELBOW = 0.4
 
 class MotorController:
     def __init__(self):
@@ -93,19 +92,28 @@ class MotorController:
 
     
         
-
+    
     def move_motor(self, motor_id, position, speed=None, acceleration=None):
         if speed is None:
-            speed = SCS_MOVING_SPEED
+            if motor_id == SCS_SHOULDER_ID:
+                speed = SCS_SHOULDER_MOVING_SPEED
+            elif motor_id == SCS_ELBOW_ID:
+                speed = SCS_ELBOW_MOVING_SPEED
+            else:
+                speed = SCS_MOVING_SPEED # Default if ID is unknown
+
         if acceleration is None:
-            acceleration = SCS_MOVING_ACC
+            if motor_id == SCS_SHOULDER_ID:
+                acceleration = SCS_SHOULDER_MOVING_ACC
+            elif motor_id == SCS_ELBOW_ID:
+                acceleration = SCS_ELBOW_MOVING_ACC
+            else:
+                acceleration = SCS_MOVING_ACC # Default if ID is unknown
 
         scs_comm_result, scs_error = self.packetHandler.WritePosEx(motor_id, position, speed, acceleration)
-        if scs_comm_result != COMM_SUCCESS:
-            print(f"Motor command failed: {self.packetHandler.getTxRxResult(scs_comm_result)}")
-        if scs_error != 0:
-            print(f"Motor error: {self.packetHandler.getRxPacketError(scs_error)}")
-            
+    
+ 
+    '''
     def get_current_shoulder_position(self):
         position, speed = self.read_motor_position_speed(SCS_SHOULDER_ID)
         if position is not None:
@@ -121,7 +129,8 @@ class MotorController:
         else:
             print("Failed to get current elbow position. Returning default.")
             return SCS_ELBOW_HOME_POSITION_VALUE  # Or a suitable default
-
+    '''
+    
     def read_motor_position_speed(self, motor_id):
         scs_present_position, scs_present_speed, scs_comm_result, scs_error = self.packetHandler.ReadPosSpeed(motor_id)
         if scs_comm_result != COMM_SUCCESS:
@@ -134,7 +143,7 @@ class MotorController:
 
     def control_shoulder_motor(self, x, center_x, tolerance):
         error = x - center_x
-        proportional_gain = 0.15  # Adjust this value - IMPORTANT!
+        proportional_gain = PROPORTIONAL_GAIN_SHOULDER  # Adjust this value - IMPORTANT!
         motor_adjustment = int(proportional_gain * error)
 
         target_shoulder_position = self.shoulder_target_position + motor_adjustment # Use the LAST target position
@@ -146,7 +155,7 @@ class MotorController:
 
     def control_elbow_motor(self, y, center_y, tolerance_y):
         error_y = y - center_y
-        proportional_gain_y = 0.15  # Adjust this value - IMPORTANT!
+        proportional_gain_y = PROPORTIONAL_GAIN_ELBOW  # Adjust this value - IMPORTANT!
         motor_adjustment_y = int(proportional_gain_y * error_y)
 
         target_elbow_position = self.elbow_target_position - motor_adjustment_y # Use the LAST target position
