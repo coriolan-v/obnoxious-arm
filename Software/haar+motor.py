@@ -18,11 +18,18 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
 # Load a pre-trained face detection model (Haar cascade - faster)
 face_cascade = cv2.CascadeClassifier("/usr/share/opencv4/haarcascades/haarcascade_frontalface_alt.xml") # Adjust path if needed
 
+tracked_faces = {}  # Dictionary to store tracked face data (x, y, w, h, last_seen_frame)
+next_face_id = 0  # Initialize face ID counter
+ID_PERSISTENCE_FRAMES = 100  # Number of frames before a lost face ID is reassigned
+
 # Motor position mapping ranges (adjust these to your motor's limits)
 SHOULDER_MOTOR_MIN = 1000  # Replace with your actual minimum value
 SHOULDER_MOTOR_MAX = 2700  # Replace with your actual maximum value
 ELBOW_MOTOR_MIN = 1678     # Replace with your actual minimum value
 ELBOW_MOTOR_MAX = 2250   # Replace with your actual maximum value
+
+SHOULDER_OFFSET = 50  # Offset to the right (positive) or left (negative)
+ELBOW_OFFSET = 0     # Offset down (positive) or up (negative)
 
 # Initialize motor controller
 motor_controller = MotorController()
@@ -71,46 +78,68 @@ while True:
     end_time = time.time()
     fps = 1 / (end_time - start_time)
 
-    # Draw bounding boxes and add IDs
-    first_face_coords = None
-    for i, (x, y, w, h) in enumerate(faces):
-        # Coordinates are ALREADY relative to the ROTATED frame
-        cv2.rectangle(rotated_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Correct position
+    # Update tracked faces
+    new_tracked_faces = {}  # Store updated face information
+    for x, y, w, h in faces:
+        best_match_id = None
+        min_distance = float('inf')  # Initialize minimum distance to infinity
 
-        if i == 0:
-            first_face_coords = (x, y, w, h)  # Store rotated coordinate
+        for face_id, face_data in tracked_faces.items():
+            last_x, last_y, _, _ = face_data['rect']
+            distance = np.sqrt((x - last_x)**2 + (y - last_y)**2)  # Calculate the distance between the centers of the rects
+            if distance < min_distance:
+                min_distance = distance
+                best_match_id = face_id
 
-        # Add face ID next to the bounding box
-        cv2.putText(rotated_frame, str(face_id), (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+        if best_match_id is not None and min_distance < 50:
+            # Update existing face
+            new_tracked_faces[best_match_id] = {'rect': (x, y, w, h), 'last_seen_frame': frame_count}
+            cv2.putText(rotated_frame, str(best_match_id), (x, y - 10),  # Correct position
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 2)  # Red color for ID
+            cv2.rectangle(rotated_frame, (x, y, w, h), (0, 0, 255), 2)  # Red color for rectangle
+        else:
+            # Assign new ID
+            new_tracked_faces[next_face_id] = {'rect': (x, y, w, h), 'last_seen_frame': frame_count}
+            cv2.putText(rotated_frame, str(next_face_id), (x, y - 10),  # Correct position
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 2)  # Red color for ID
+            cv2.rectangle(rotated_frame, (x, y, w, h), (0, 0, 255), 2)  # Red color for rectangle
+            next_face_id += 1
 
-        if i == 0:  # Check if it's the first face (index 0)
-            first_face_coords = (x, y, w, h)  # Store coordinates of the first face
+    # Remove lost faces
+    faces_to_remove = []
+    for face_id, face_data in tracked_faces.items():
+        if frame_count - face_data['last_seen_frame'] > ID_PERSISTENCE_FRAMES:
+            faces_to_remove.append(face_id)
+    for face_id in faces_to_remove:
+        del tracked_faces[face_id]
 
-        face_id += 1
-    face_id = 0  # Reset for the next frame
+    tracked_faces = new_tracked_faces # Update the tracked faces
 
-    # Print or use the coordinates of the first face
-    if first_face_coords:
-        #print(f"Coordinates of the first face: {first_face_coords}")
+     # Motor Control (Corrected)
+    if tracked_faces:
+        first_tracked_id = min(tracked_faces.keys())
+        x, y, w, h = tracked_faces[first_tracked_id]['rect']
 
-        # Motor Control Logic using MotorController class
-        x, y, w, h = first_face_coords
+        # Calculate motor positions with offset (separate from drawing)
+        motor_x = x + SHOULDER_OFFSET  # Offset applied ONLY for motor control
+        motor_y = y + ELBOW_OFFSET # Offset applied ONLY for motor control
 
-        # Map x and y to motor positions
-        shoulder_motor_position = int(np.interp(x, [0, rotated_frame.shape[1]], [SHOULDER_MOTOR_MIN, SHOULDER_MOTOR_MAX]))
-        elbow_motor_position = int(np.interp(y, [0, rotated_frame.shape[0]], [ELBOW_MOTOR_MIN, ELBOW_MOTOR_MAX]))
+        shoulder_motor_position = int(np.interp(motor_x, [0, rotated_frame.shape[1]], [SHOULDER_MOTOR_MIN, SHOULDER_MOTOR_MAX]))
+        elbow_motor_position = int(np.interp(motor_y, [0, rotated_frame.shape[0]], [ELBOW_MOTOR_MIN, ELBOW_MOTOR_MAX]))
 
-        #print(f"Shoulder Motor Position: {shoulder_motor_position}")
-        #print(f"Elbow Motor Position: {elbow_motor_position}")
-
-        center_x = rotated_frame.shape[1] // 2  # Center of the ROTATED frame
+        center_x = rotated_frame.shape[1] // 2
         tolerance = 50
-        motor_controller.control_shoulder_motor(x, center_x, tolerance)  # Use MotorController
-
-        center_y = rotated_frame.shape[0] // 2  # Center of the ROTATED frame
+        motor_controller.control_shoulder_motor(motor_x, center_x, tolerance)  # Use motor_x
+        center_y = rotated_frame.shape[0] // 2
         tolerance_y = 50
-        motor_controller.control_elbow_motor(y, center_y, tolerance_y)  # Use MotorController
+        motor_controller.control_elbow_motor(motor_y, center_y, tolerance_y)  # Use motor_y
 
+        # Draw the rectangle (RED) and display coordinates (using original x, y)
+        cv2.rectangle(rotated_frame, (x, y, w, h), (0, 0, 255), 2)  # Red color
+        coordinates_text = f"X: {x}, Y: {y}"
+        cv2.putText(rotated_frame, coordinates_text, (x, y + h + 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 2)  # Red color
+                    
     end_time = time.time()
     fps = 1 / (end_time - start_time)
 
