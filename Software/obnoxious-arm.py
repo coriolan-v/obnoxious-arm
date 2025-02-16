@@ -18,12 +18,6 @@ while not os.path.exists("/dev/video0"):
     print("/dev/video0 not found. Retrying in 5 seconds...")
     time.sleep(5)
     
-# Check if /dev/video1 exists, try again every 5 seconds
-print("checking /dev/video1...")
-while not os.path.exists("/dev/video1"):
-    print("/dev/video0 not found. Retrying in 5 seconds...")
-    time.sleep(5)
-
 cap = cv2.VideoCapture("/dev/video0")
 if not cap.isOpened():
     print("Error: Could not open camera.")
