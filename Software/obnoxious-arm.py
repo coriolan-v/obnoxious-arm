@@ -1,13 +1,29 @@
+#/home/live/Documents/GitHub/obnoxious-arm/Software/haar+motor.py
+import os
 import cv2
 import time
 import numpy as np  # Import numpy
 from motor_control import MotorController  # Import your motor control class
+import subprocess  # For piping to v4l2loopback
 
 FPS_DISPLAY_INTERVAL = 10  # Display FPS every 10 frames
 frame_count = 0  # Initialize frame counter
 CAMERA_WIDTH = 320  # Reduced width for faster processing
 CAMERA_HEIGHT = 240  # Reduced height for faster processing
 # Open the default camera (video0)
+
+# Check if /dev/video0 exists, try again every 5 seconds
+print("checking /dev/video0...")
+while not os.path.exists("/dev/video0"):
+    print("/dev/video0 not found. Retrying in 5 seconds...")
+    time.sleep(5)
+    
+# Check if /dev/video1 exists, try again every 5 seconds
+print("checking /dev/video1...")
+while not os.path.exists("/dev/video1"):
+    print("/dev/video0 not found. Retrying in 5 seconds...")
+    time.sleep(5)
+
 cap = cv2.VideoCapture("/dev/video0")
 if not cap.isOpened():
     print("Error: Could not open camera.")
@@ -45,6 +61,25 @@ motor_controller = MotorController()
 face_id = 0  # Initialize face ID counter
 
 DISPLAY_SCALE = 2  # Double the size of the preview window (adjust as needed)
+scale_factor = 0.5  # Adjust as needed#
+
+'''
+# V4L2 loopback device path
+V4L2_DEVICE = "/dev/video1"
+
+# Open a pipe to the v4l2loopback device using ffmpeg
+command = [
+    'ffmpeg', '-y',
+    '-f', 'rawvideo',
+    '-vcodec','rawvideo',
+    '-s', f'{int(CAMERA_WIDTH*scale_factor)}x{int(CAMERA_HEIGHT*scale_factor)}',  # Now defined!
+    '-pix_fmt', 'bgr24',
+    '-i', '-',
+    '-f', 'v4l2',
+    V4L2_DEVICE
+]
+pipe = subprocess.Popen(command, stdin=subprocess.PIPE)
+'''
 
 while True:
     ret, frame = cap.read()
@@ -54,7 +89,7 @@ while True:
 
 
     # 1. Resize FIRST (if needed)
-    scale_factor = 0.5  # Adjust as needed
+   
     resized_frame = cv2.resize(frame, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_LINEAR)
 
     # 2. Rotate (Efficiently)
@@ -154,10 +189,17 @@ while True:
     display_frame = cv2.resize(rotated_frame, None, fx=DISPLAY_SCALE, fy=DISPLAY_SCALE, interpolation=cv2.INTER_LINEAR)
 
     cv2.imshow("Face Detection (Rotated)", display_frame)  # Show the larger frame
+    
+     # Convert the frame to RGB (important for v4l2loopback)
+    output_frame = cv2.cvtColor(rotated_frame, cv2.COLOR_BGR2RGB)
+
+    # Write the frame to the pipe
+    #pipe.stdin.write(output_frame.tobytes())
 
     if cv2.waitKey(1) == 27:
         break
 
 cap.release()
 cv2.destroyAllWindows() 
+
 
