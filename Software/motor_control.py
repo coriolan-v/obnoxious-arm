@@ -32,28 +32,39 @@ BAUDRATE = 115200
 
 DEVICENAME = '/dev/ttyUSB0'  # Or your port
 
+MODEL1 = 1
+MODEL2 = 2
+
+current_model = MODEL2
+
+if current_model == MODEL1:
+    SCS_SHOULDER_HOME_POSITION_VALUE = 2000 #model2: 2500
+    SCS_SHOULDER_MINIMUM_POSITION_VALUE = 1000 #model2: 1700
+    SCS_SHOULDER_MAXIMUM_POSITION_VALUE = 2700 #model: 3300
+    SCS_ELBOW_HOME_POSITION_VALUE = 2000 #model2: 2000
+    SCS_ELBOW_MINIMUM_POSITION_VALUE = 1900 #model2: 1700
+    SCS_ELBOW_MAXIMUM_POSITION_VALUE = 2500 #model2: 2200
+elif current_model == MODEL2:
+    SCS_SHOULDER_HOME_POSITION_VALUE = 2500 #model2: 2500
+    SCS_SHOULDER_MINIMUM_POSITION_VALUE = 1700 #model2: 1700
+    SCS_SHOULDER_MAXIMUM_POSITION_VALUE = 3300 #model: 3300
+    SCS_ELBOW_HOME_POSITION_VALUE = 2000 #model2: 2000
+    SCS_ELBOW_MINIMUM_POSITION_VALUE = 1700 #model2: 1700
+    SCS_ELBOW_MAXIMUM_POSITION_VALUE = 2200 #model2: 2200
+
+    
 SCS_SHOULDER_ID = 1
-SCS_SHOULDER_HOME_POSITION_VALUE = 2000
-SCS_SHOULDER_MINIMUM_POSITION_VALUE = 1000
-SCS_SHOULDER_MAXIMUM_POSITION_VALUE = 2700
 SCS_SHOULDER_MOVING_SPEED = 400
 SCS_SHOULDER_MOVING_ACC = 40
-
 SCS_SHOULDER_MOVING_SPEED_HOME = 200
 SCS_SHOULDER_MOVING_ACC_HOME = 20
-
 PROPORTIONAL_GAIN_SHOULDER = 0.45
 
 SCS_ELBOW_ID = 2
-SCS_ELBOW_HOME_POSITION_VALUE = 2000
-SCS_ELBOW_MINIMUM_POSITION_VALUE = 1500
-SCS_ELBOW_MAXIMUM_POSITION_VALUE = 2900
 SCS_ELBOW_MOVING_SPEED = 400
 SCS_ELBOW_MOVING_ACC = 40
-
 SCS_ELBOW_MOVING_SPEED_HOME = 200
 SCS_ELBOW_MOVING_ACC_HOME = 20
-
 PROPORTIONAL_GAIN_ELBOW = 0.4
 
 
@@ -225,6 +236,26 @@ class MotorController:
             print(f"[ID:{SCS_SHOULDER_ID}] groupSyncRead getdata failed")
             return None
 
+    def get_current_elbow_position(self):
+        """Gets the current shoulder motor position using sync read."""
+        self.groupSyncRead.clearParam()
+        scs_addparam_result = self.groupSyncRead.addParam(SCS_ELBOW_ID)
+        if scs_addparam_result != True:
+            print(f"[ID:{SCS_ELBOW_ID}] groupSyncRead addparam failed")
+
+        scs_comm_result = self.groupSyncRead.txRxPacket()
+        if scs_comm_result != COMM_SUCCESS:
+            print(f"SyncRead Error: {self.packetHandler.getTxRxResult(scs_comm_result)}")
+            return None  # Or handle the error as needed
+
+        scs_data_result, scs_error = self.groupSyncRead.isAvailable(SCS_ELBOW_ID, SMS_STS_PRESENT_POSITION_L, 2)
+        if scs_data_result == True:
+            current_elbow_position = self.groupSyncRead.getData(SCS_ELBOW_ID, SMS_STS_PRESENT_POSITION_L, 2)
+            return current_elbow_position
+        else:
+            print(f"[ID:{SCS_ELBOW_ID}] groupSyncRead getdata failed")
+            return None
+
     def check_sweep_interruption(self):
         """Checks for user input (e.g., 'q' key) to interrupt the sweep."""
         if os.name == 'nt':
@@ -243,6 +274,36 @@ class MotorController:
                 print(f"Error checking input: {e}")
         return False
         
+    def start_elbow_sweep(self, sweep_delay=5, sweep_up_down_time=2):  # New function
+        """Starts the elbow sweep in a separate thread."""
+        import threading  # Import threading here, only if needed
+
+        def _elbow_sweep_thread(self, sweep_delay, sweep_up_down_time): # Inner function for the thread
+            time.sleep(sweep_delay)  # Initial delay
+            while True:
+                current_elbow_position = self.get_current_elbow_position()
+                if current_elbow_position is not None:
+                    if current_elbow_position >= SCS_ELBOW_MAXIMUM_POSITION_VALUE - 100:
+                        self.move_motor(SCS_ELBOW_ID, SCS_ELBOW_MINIMUM_POSITION_VALUE, 200, 20)
+                    elif current_elbow_position <= SCS_ELBOW_MINIMUM_POSITION_VALUE + 100:
+                        self.move_motor(SCS_ELBOW_ID, SCS_ELBOW_MAXIMUM_POSITION_VALUE, 200, 20)
+                    else:
+                        self.move_motor(SCS_ELBOW_ID, SCS_ELBOW_MAXIMUM_POSITION_VALUE, 200, 20)
+                time.sleep(sweep_up_down_time)  # Delay between movements
+
+        self.elbow_sweep_thread = threading.Thread(target=_elbow_sweep_thread, args=(self, sweep_delay, sweep_up_down_time)) # Create the thread
+        self.elbow_sweep_thread.daemon = True  # Allow the main thread to exit even if sweep is running
+        self.elbow_sweep_thread.start() # Start the thread
+
+    def stop_elbow_sweep(self):
+        """Stops the elbow sweep thread."""
+        if hasattr(self, "elbow_sweep_thread") and self.elbow_sweep_thread.is_alive():
+            # There's no clean way to directly stop a thread in Python.
+            # A common approach is to use a shared flag that the thread checks.
+            # For simplicity in this case, we rely on the daemon=True setting and
+            # let the thread finish when the main program exits.
+            # For a more robust solution, you could add a stop flag and check it in the _elbow_sweep_thread.
+            pass  # Or add a more robust stop mechanism if needed.
    
 
     def close_port(self):

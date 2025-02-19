@@ -1,3 +1,5 @@
+#obnoxious-arm.py
+
 import os
 import cv2
 import time
@@ -46,17 +48,30 @@ SCS_SHOULDER_HOME_POSITION_VALUE = 2000  # From motor_control.py
 SCS_ELBOW_HOME_POSITION_VALUE = 2000    # From motor_control.py
 
 no_face_start_time = None
-NO_FACE_TIMEOUT = 5  # Seconds
+NO_FACE_TIMEOUT = 30  # Seconds
 
 shoulder_at_home = False
 elbow_at_home = False
 
 
 while True:
+    if not cap.isOpened():
+        print("Camera not opened. Reconnecting...")
+        while not cap.isOpened():  # Inner loop to keep trying
+            cap.release()  # Release any failed capture
+            cap = cv2.VideoCapture(0)  # Or /dev/video0, etc.
+            if cap.isOpened():
+                print("Camera reconnected!")
+                break  # Exit the inner loop when successful
+            else:
+                print("Reconnection failed. Retrying in 2 seconds...")
+                time.sleep(2)  # Wait before retrying
+                
     ret, frame = cap.read()
     if not ret:
-        print("Error: Could not read frame.")
-        break
+        print("Error reading frame. Reconnecting...")
+        cap.release() # Release before reconnecting
+        continue  # Go to the next iteration of the outer loop (reconnection)
 
     resized_frame = cv2.resize(frame, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_LINEAR)
 
@@ -136,15 +151,17 @@ while True:
 
     else:  # No faces detected
         if no_face_start_time is None:
-            no_face_start_time = time.time()  # Start the timer
+            no_face_start_time = time.time()
 
         elif time.time() - no_face_start_time >= NO_FACE_TIMEOUT:
-            if not shoulder_at_home or not elbow_at_home: # Only move if not already at home
+            if not shoulder_at_home or not elbow_at_home:
                 print(f"No faces detected for {NO_FACE_TIMEOUT} seconds. Returning to home position.")
 
-            motor_controller.go_home()
-            shoulder_at_home = True
-            elbow_at_home = True
+                motor_controller.go_home()
+                shoulder_at_home = True
+                elbow_at_home = True
+
+                #motor_controller.start_elbow_sweep()  # Start the sweep
 
     
             
